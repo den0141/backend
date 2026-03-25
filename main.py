@@ -20,13 +20,12 @@ class LoginRequest(BaseModel):
 async def login(req: LoginRequest):
     GAME_URL = "https://oldprison-prod.luckygem.online/api/auth/login"
 
-    # ⚠️ Отправляем как form data
-    payload = req.initData  # уже в формате query_id=...&user=...&auth_date=...&signature=...&hash=...
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-    game_response = requests.post(GAME_URL, data=payload, headers=headers)
+    # Сюда передаём именно строку initData без JSON
+    response = requests.post(GAME_URL, data=req.initData, headers=headers)
 
     try:
-        return game_response.json()
+        return response.json()
     except:
         return {"error": True, "detail": "game response invalid"}
