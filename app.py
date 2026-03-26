@@ -1,30 +1,61 @@
-from fastapi import FastAPI, Request
-import httpx
+from fastapi import FastAPI
+import uvicorn
+import requests
+import urllib.parse
 
 app = FastAPI()
 
-API_BASE = "https://oldprison-prod.luckygem.online/api/player/init"
+GAME_INIT_URL = "https://oldprison-prod.luckygem.online/init/"
+PLAYER_INIT_URL = "https://oldprison-prod.luckygem.online/api/player/init"
 
-@app.post("/get_profile")
-async def get_profile(req: Request):
-    data = await req.json()
-    tg_data = data.get("tgData")
-    if not tg_data:
-        return {"success": False, "error": "Нет данных Telegram"}
 
-    # Из tg_data нужно извлечь query_id
-    import urllib.parse, json
-    parsed = urllib.parse.parse_qs(urllib.parse.unquote(tg_data.split("#tgWebAppData=")[-1]))
-    query_id = parsed.get("query_id", [None])[0]
-    if not query_id:
-        return {"success": False, "error": "Нет query_id"}
+@app.post("/api/init")
+def get_profile(data: dict):
+    init_str = data.get("initData")
 
-    # Отправляем запрос в игру
+    if not init_str:
+        return {"error": "Нет initData"}
+
+    # 1. Декодируем URL
+    decoded = urllib.parse.unquote(init_str)
+
+    # 2. Извлекаем user JSON
     try:
-        headers = {"Authorization": f"Bearer {query_id}"}
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(API_BASE, headers=headers)
-            profile = resp.json()
-        return profile
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+        user_str = decoded.split("user=")[1].split("&")[0]
+        user = urllib.parse.unquote(user_str)
+        user_json = eval(user)
+        player_id = user_json["id"]
+    except:
+        return {"error": "Ошибка парсинга initData"}
+
+    # 3. Делаем запрос на получение игрового токена
+    init_url = GAME_INIT_URL + init_str
+    token_resp = requests.get(init_url)
+
+    if token_resp.status_code != 200:
+        return {"error": "Не удалось получить токен"}
+
+    bearer = token_resp.json().get("accessToken")
+
+    if not bearer:
+        return {"error": "Токен не получен"}
+
+    # 4. Теперь получаем профиль игрока
+    headers = {"Authorization": f"Bearer {bearer}"}
+    p = requests.post(PLAYER_INIT_URL, headers=headers)
+
+    if p.status_code != 200:
+        return {"error": "Ошибка получения профиля"}
+
+    pdata = p.json()
+
+    # 5. Возвращаем валюту
+    return {
+        "playerId": player_id,
+        "money": pdata["player"].get("money", 0),
+        "cigs": pdata["player"].get("cigarettes", 0),
+    }
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
