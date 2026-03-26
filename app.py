@@ -4,10 +4,9 @@ import requests
 
 app = FastAPI()
 
-# Разрешаем запросы с WebApp
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://den0141.github.io"],  # твой WebApp
+    allow_origins=["https://den0141.github.io"],
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -18,17 +17,19 @@ async def get_player(data: dict):
     if not token:
         return {"error": "Токен не предоставлен"}
 
-    try:
-        # Правильный URL: токен подставляется в путь
-        url = f"https://oldprison-prod.luckygem.online/init/{token}"
-        resp = requests.post(url, headers={"Content-Type": "application/json"})
+    url = "https://oldprison-prod.luckygem.online/api/player/init"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
 
+    try:
+        resp = requests.post(url, headers=headers)
         if resp.status_code != 200:
             return {"error": f"Не удалось получить профиль, статус {resp.status_code}"}
 
         profile = resp.json()
-        # Проверка success
-        if not profile.get("success", True):
+        if not profile.get("success"):
             return {"error": "Токен неверный или просрочен"}
 
         return profile
