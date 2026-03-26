@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import requests
+import uvicorn
 
 app = FastAPI()
 
@@ -13,22 +13,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class LoginRequest(BaseModel):
+# === Модель входящих данных ===
+class InitData(BaseModel):
     initData: str
 
-@app.post("/api/login")
-async def login(req: LoginRequest):
-    GAME_URL = "https://oldprison-prod.luckygem.online/api/auth/login"
 
-    payload = {"initData": req.initData}
+# === ЗАГЛУШКА: здесь ты сам передаёшь данные игрока ===
+# Позже сюда вставим запросы к игре.
+mock_player_data = {
+    "level": 16,
+    "experience": 940,
+    "nextLevelExperience": 17500,
+    "energy": 202,
+    "maxEnergy": 202,
+    "currencies": {
+        "Cash": 35976,
+        "Gold": 48689,
+        "PrisonCurrency": 155
+    }
+}
 
-    game_response = requests.get(GAME_URL, params=payload)
 
-    try:
-        return game_response.json()
-    except:
-        return {"error": True, "detail": "game response invalid"}
+@app.post("/api/profile")
+async def get_profile(data: InitData):
+    # Тут ты можешь расшифровать initData
+    # Или получить токен игрока
 
-@app.get("/")
-async def root():
-    return {"status": "backend OK"}
+    return mock_player_data
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
